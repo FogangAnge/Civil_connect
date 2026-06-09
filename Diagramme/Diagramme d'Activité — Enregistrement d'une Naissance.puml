@@ -1,0 +1,61 @@
+@startuml CivilConnect_Activity_Naissance
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+  BackgroundColor #003E7E
+  BorderColor #003E7E
+  FontColor White
+}
+
+start
+:Parent se connecte au portail (JWT + MFA);
+:Sélectionne "Déclarer une naissance";
+
+fork
+  :Saisit infos enfant\n(nom, prénom, date, lieu, sexe);
+fork again
+  :Saisit infos parents\n(NON père, NON mère, statut mariage);
+fork again
+  :Attache déclaration hôpital\n(PDF ou scan);
+end fork
+
+if (Parents mariés ?) then (Oui)
+  :Attache acte de mariage;
+else (Non)
+  :Procédure parent non marié;
+endif
+
+:Système vérifie NIN via API ANTIC;
+
+if (NON valides ?) then (Non)
+  :Alerte erreur NIN;
+  :Parent corrige;
+  -[hidden]-> ;
+  detach
+else (Oui)
+endif
+
+:Système calcule délai depuis naissance;
+
+if (Délai > 90 jours ?) then (Oui)
+  :Exige référence jugement tribunal;
+else (Non)
+endif
+
+:Système génère UUID v4 unique;
+:Officier EC reçoit notification de validation;
+:Officier EC vérifie les données saisies;
+
+if (Données conformes ?) then (Non)
+  :Officier retourne correction au parent;
+  stop
+else (Oui)
+endif
+
+:Officier EC signe l'acte (RSA);
+:Système génère QR Code SHA-256;
+:Acte enregistré en PostgreSQL central;
+:Audit log créé (horodatage + identité);
+:Notification confirmée au parent;
+:Rapport mensuel BUNEC mis à jour (async);
+stop
+@enduml

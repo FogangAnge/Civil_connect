@@ -17,9 +17,18 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=32, choices=Role.choices, default=Role.CITOYEN)
     telephone = models.CharField(max_length=32, blank=True, default='')
+    commune = models.CharField(max_length=120, blank=True, default='')
+    mairie = models.ForeignKey(
+        'mairies.Mairie',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users',
+    )
 
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=64, blank=True, default='')
+    nin = models.CharField(max_length=24, blank=True, default='', db_index=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

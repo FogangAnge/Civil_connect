@@ -1,7 +1,7 @@
 import os
 
 import pyotp
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from django.conf import settings
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from rest_framework import status, viewsets
@@ -10,6 +10,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .serializers import RegisterSerializer
+
 MFA_PREAUTH_SALT = 'civilconnect-mfa-preauth'
 MFA_PREAUTH_MAX_AGE = 300
 
@@ -17,18 +19,36 @@ MFA_PREAUTH_MAX_AGE = 300
 class AuthViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
 
+    @action(detail=False, methods=['POST'], url_path='register')
+    def register(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Compte créé avec succès. Connectez-vous maintenant.'}, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['POST'], url_path='login')
     def login(self, request):
-        email = (request.data.get('email') or '').strip().lower()
+        identifier = (request.data.get('email') or '').strip()
         password = request.data.get('password') or ''
+        email = identifier.lower()
         user = authenticate(request, username=email, password=password)
+        if not user:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            candidate = User.objects.filter(nin__iexact=identifier).first()
+            if candidate:
+                user = authenticate(request, username=candidate.email, password=password)
         if not user:
             return Response({'detail': 'Identifiants invalides.'}, status=401)
 
+        full_name = user.get_full_name() or user.email
         if os.getenv('DEMO_SKIP_MFA', '0') == '1':
             refresh = RefreshToken.for_user(user)
             access = str(refresh.access_token)
-            resp = Response({'mfa_required': False, 'role': getattr(user, 'role', 'CITOYEN')})
+            resp = Response(
+                {'mfa_required': False, 'role': getattr(user, 'role', 'CITOYEN'), 'full_name': full_name}
+            )
             resp.set_cookie(
                 getattr(settings, 'JWT_AUTH_COOKIE', 'cc_access'),
                 access,
@@ -88,8 +108,9 @@ class AuthViewSet(viewsets.ViewSet):
 
         refresh = RefreshToken.for_user(user)
         access = str(refresh.access_token)
+        full_name = user.get_full_name() or user.email
 
-        resp = Response({'role': getattr(user, 'role', 'CITOYEN')})
+        resp = Response({'role': getattr(user, 'role', 'CITOYEN'), 'full_name': full_name})
         resp.set_cookie(getattr(settings, 'JWT_AUTH_COOKIE', 'cc_access'), access, httponly=True, samesite='Lax')
         resp.set_cookie(getattr(settings, 'JWT_AUTH_REFRESH_COOKIE', 'cc_refresh'), str(refresh), httponly=True, samesite='Lax')
         return resp

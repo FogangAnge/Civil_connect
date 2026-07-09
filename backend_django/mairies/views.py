@@ -6,9 +6,14 @@ from .models import Mairie
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def mairies_list(request):
-    return JsonResponse(list(Mairie.objects.order_by('code').values('code', 'nom', 'region')), safe=False)
+    return JsonResponse(
+        list(
+            Mairie.objects.order_by('code').values('code', 'nom', 'region', 'departement', 'commune')
+        ),
+        safe=False,
+    )
 
 
 @api_view(['GET'])

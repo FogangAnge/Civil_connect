@@ -22,7 +22,9 @@ DEFAULT_PASSWORD = "Civil123!"
 
 
 def upsert_user(email: str, role: str, **extra):
-    u, _ = User.objects.get_or_create(email=email, defaults={"role": role, **extra})
+    defaults = {"role": role}
+    defaults.update(extra)
+    u, _ = User.objects.get_or_create(email=email, defaults=defaults)
     u.role = role
     for k, v in extra.items():
         setattr(u, k, v)
@@ -32,10 +34,58 @@ def upsert_user(email: str, role: str, **extra):
 
 
 def main():
+    DEFAULT_MAIRIES = [
+        {
+            'code': 'CMR001',
+            'nom': 'Mairie de Yaoundé I',
+            'region': 'Centre',
+            'departement': 'Mfoundi',
+            'commune': 'Yaoundé I',
+        },
+        {
+            'code': 'CMR002',
+            'nom': 'Mairie de Douala II',
+            'region': 'Littoral',
+            'departement': 'Wouri',
+            'commune': 'Douala II',
+        },
+        {
+            'code': 'CMR003',
+            'nom': 'Mairie de Bafoussam',
+            'region': 'Ouest',
+            'departement': 'Hauts-Plateaux',
+            'commune': 'Bafoussam',
+        },
+        {
+            'code': 'CMR004',
+            'nom': 'Mairie de Maroua',
+            'region': 'Extrême-Nord',
+            'departement': 'Diamaré',
+            'commune': 'Maroua',
+        },
+        {
+            'code': 'CMR005',
+            'nom': 'Mairie de Ngaoundéré',
+            'region': 'Adamaoua',
+            'departement': 'Vina',
+            'commune': 'Ngaoundéré',
+        },
+    ]
+
+    for mairie_data in DEFAULT_MAIRIES:
+        Mairie.objects.get_or_create(code=mairie_data['code'], defaults=mairie_data)
+
+    default_mairie = Mairie.objects.filter(code='CMR001').first()
+
     upsert_user(
         "citoyen@civilconnect.cm",
         User.Role.CITOYEN,
+        first_name="Demo",
+        last_name="Citoyen",
         telephone="+237600000000",
+        nin="1234567890",
+        commune="Yaoundé I",
+        mairie=default_mairie,
     )
     officier_user = upsert_user(
         "officier@civilconnect.cm",
